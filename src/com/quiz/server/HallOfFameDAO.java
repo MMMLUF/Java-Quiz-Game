@@ -27,9 +27,9 @@ public class HallOfFameDAO {
         try (Connection conn = this.connect();
              Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
-            System.out.println("✅ DB 테이블 초기화 완료 (또는 이미 존재함)");
+            System.out.println("DB 테이블 초기화 완료 (또는 이미 존재함)");
         } catch (SQLException e) {
-            System.out.println("❌ 테이블 생성 실패");
+            System.out.println("테이블 생성 실패");
             e.printStackTrace();
         }
     }
@@ -43,9 +43,9 @@ public class HallOfFameDAO {
             pstmt.setString(1, username);
             pstmt.setInt(2, score);
             pstmt.executeUpdate();
-            System.out.println("💾 점수 등록 성공: [" + username + "] -> " + score + "점");
+            System.out.println("점수 등록 성공: [" + username + "] -> " + score + "점");
         } catch (SQLException e) {
-            System.out.println("❌ 점수 등록 실패 [cite: 256]");
+            System.out.println("점수 등록 실패");
             e.printStackTrace();
         }
     }
@@ -55,7 +55,7 @@ public class HallOfFameDAO {
         String sql = "SELECT username, score FROM RANKING ORDER BY score DESC LIMIT 10";
 
         System.out.println("\n=========================================");
-        System.out.println("🏆 명예의 전당 TOP 10 🏆 [cite: 187, 188]");
+        System.out.println("           🏆 명예의 전당 TOP 10 🏆 ");
         System.out.println("=========================================");
 
         try (Connection conn = this.connect();
@@ -79,26 +79,22 @@ public class HallOfFameDAO {
             System.out.println("-----------------------------------------");
             
         } catch (SQLException e) {
-            System.out.println("❌ 랭킹 조회 실패 [cite: 256]");
+            System.out.println("랭킹 조회 실패");
             e.printStackTrace();
         }
     }
 
-    // 5. 테스트를 위한 메인 메서드
     public static void main(String[] args) {
         HallOfFameDAO dao = new HallOfFameDAO();
         
-        // 1단계: DB와 테이블 만들기
         dao.createTable();
         
-        // 2단계: 가짜 플레이어 데이터 집어넣기 (테스트용)
         System.out.println("\n--- 랭킹 등록 테스트 ---");
-        dao.insertScore("김민성", 850);
-        dao.insertScore("우찬희", 920);
-        dao.insertScore("유환휘", 740);
-        dao.insertScore("JavaKing", 990);
+        dao.insertScore("김민성", 120);
+        dao.insertScore("우찬희", 340);
+        dao.insertScore("유환휘", 560);
+        dao.insertScore("JavaKing", 780);
         
-        // 3단계: 점수 높은 순으로 Top 10 출력하기 [cite: 238]
         dao.displayTop10();
     }
 }

@@ -2,15 +2,14 @@ package com.quiz.server;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-// 제안서 스펙: Singleton 패턴을 적용하여 전역에서 단 하나의 객체로 점수를 관리 [cite: 164, 166]
 public class ScoreManager {
-    // 멀티스레드 환경에서 안전하도록 ConcurrentHashMap 사용 [cite: 137]
+    // 멀티스레드 환경에서 안전하도록 ConcurrentHashMap
     private ConcurrentHashMap<String, Integer> playerScores;
 
     // 1. 오직 단 하나의 인스턴스만 정적으로 생성 
     private static final ScoreManager instance = new ScoreManager();
 
-    // 2. 외부에서 new 키워드로 객체를 생성하지 못하도록 private 생성자 선언 [cite: 164, 166]
+    // 2. 외부에서 new 키워드로 객체를 생성하지 못하도록 private 생성자 선언
     private ScoreManager() {
         playerScores = new ConcurrentHashMap<>();
     }

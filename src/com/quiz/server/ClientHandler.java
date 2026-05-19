@@ -33,26 +33,24 @@ public class ClientHandler extends Thread {
         ) {
             nickname = in.readLine();
             String category = in.readLine();
-            System.out.println("👤 [SERVER] 플레이어 접속: " + nickname + " (카테고리: " + category + ")");
+            System.out.println("[SERVER] 플레이어 접속: " + nickname + " (카테고리: " + category + ")");
 
             JSONArray quizArray;
             try {
                 String content = new String(Files.readAllBytes(Paths.get("quizzes.json")), StandardCharsets.UTF_8);
                 JSONObject allQuizzes = new JSONObject(content);
                 
-                // [개선] 선택한 카테고리가 JSON에 존재하면 해당 배열을 타겟팅
                 if (allQuizzes.has(category)) {
                     quizArray = allQuizzes.getJSONArray(category);
                 } else {
                     quizArray = allQuizzes.getJSONArray("일반상식"); // Fallback 기본 카테고리
                 }
             } catch (Exception e) {
-                System.out.println("⚠️ [SERVER] quizzes.json 로드 실패! 기본 백업 문제를 로딩합니다.");
+                System.out.println("[SERVER] quizzes.json 로드 실패. 기본 백업 문제를 로딩합니다.");
                 String fallbackJson = "[{\"question\":\"[백업] 자바의 최상위 부모 클래스는?\",\"options\":[\"1.String\",\"2.Object\",\"3.System\",\"4.Void\"],\"answer\":2}]";
                 quizArray = new JSONArray(fallbackJson);
             }
             
-            // [개선] 20문제 중 중복 없이 랜덤으로 5개를 뽑기 위한 인덱스 셔플 로직
             List<Integer> indices = new ArrayList<>();
             for (int k = 0; k < quizArray.length(); k++) {
                 indices.add(k);
@@ -90,12 +88,12 @@ public class ClientHandler extends Thread {
                 }
 
                 if (clientAnswer == 0) {
-                    out.println("⏰ 시간 초과! 제한 시간 15초가 지나 오답 처리되었습니다.");
+                    out.println("시간 초과! 제한 시간 15초가 지나 오답 처리되었습니다.");
                 } else if (clientAnswer == correctAnswer) {
                     scoreManager.addScore(nickname, 200); 
-                    out.println("🎉 정답입니다! (+200점)");
+                    out.println("정답입니다! (+200점)");
                 } else {
-                    out.println("❌ 틀렸습니다! 정답은 " + correctAnswer + "번입니다.");
+                    out.println("틀렸습니다! 정답은 " + correctAnswer + "번입니다.");
                 }
             }
 
@@ -104,9 +102,9 @@ public class ClientHandler extends Thread {
             out.println(finalScore);
             
         } catch (QuizException qe) {
-            System.out.println("🚨 [SERVER] 프로토콜 위반: " + qe.getMessage());
+            System.out.println("[SERVER] 프로토콜 위반: " + qe.getMessage());
         } catch (Exception e) {
-            System.out.println("❌ [SERVER] 오류 발생");
+            System.out.println("[SERVER] 오류 발생");
             e.printStackTrace();
         } finally {
             if (nickname != null) {

@@ -36,7 +36,7 @@ public class LoginScreen extends JFrame {
         comboCategory = new JComboBox<>(categories);
         catePanel.add(comboCategory, BorderLayout.CENTER);
 
-        btnStart = new JButton("게임 시작 🎯");
+        btnStart = new JButton("게임 시작");
         
         mainPanel.add(namePanel);
         mainPanel.add(catePanel);
@@ -44,7 +44,6 @@ public class LoginScreen extends JFrame {
 
         add(mainPanel, BorderLayout.CENTER);
 
-     // LoginScreen.java 내의 btnStart 이벤트 리스너 부분 보정 코드입니다.
         btnStart.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -63,7 +62,6 @@ public class LoginScreen extends JFrame {
                     return;
                 }
 
-                // [제안서 반영] 서버 다운 및 연결 실패 시 대응 전략 (재연결 유도 루프)
                 boolean connected = false;
                 Socket socket = null;
                 
@@ -72,19 +70,16 @@ public class LoginScreen extends JFrame {
                         socket = new Socket("localhost", 9999);
                         connected = true; // 연결 성공 시 루프 탈출
                     } catch (Exception ex) {
-                        // [PPT 명세] 사용자에게 알림 다이얼로그 제공 및 재시도 여부 확인
                         int choice = JOptionPane.showConfirmDialog(LoginScreen.this, 
                                 "서버와 연결할 수 없습니다. 다시 연결을 시도하시겠습니까?", 
-                                "🌐 연결 실패 (ConnectException)", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+                                "연결 실패 (ConnectException)", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
                         
                         if (choice == JOptionPane.NO_OPTION) {
                             return; // 재시도를 포기하면 함수 종료 (게임 진행 안 함)
                         }
-                        // YES를 누르면 while 루프에 의해 자동으로 재연결을 시도합니다.
                     }
                 }
 
-                // 연결에 성공하여 무사히 루프를 탈출한 경우에만 아래 로직이 수행됩니다.
                 try {
                     PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8), true);
                     out.println(nickname);
