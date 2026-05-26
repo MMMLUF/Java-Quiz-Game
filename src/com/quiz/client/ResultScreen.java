@@ -166,14 +166,14 @@ public class ResultScreen extends JFrame {
     private void refreshLeaderboard() {
         tableModel.setRowCount(0);
 
+        // 스키마 정의는 서버 측 HallOfFameDAO 하나로 일원화한다.
+        new com.quiz.server.HallOfFameDAO().createTable();
+
         String dbUrl     = "jdbc:sqlite:ranking.db";
-        String createSql = "CREATE TABLE IF NOT EXISTS RANKING (username TEXT, score INTEGER);";
         String selectSql = "SELECT username, score FROM RANKING ORDER BY score DESC LIMIT 10";
 
         try (Connection conn = DriverManager.getConnection(dbUrl);
              Statement stmt = conn.createStatement()) {
-
-            stmt.execute(createSql);
 
             try (ResultSet rs = stmt.executeQuery(selectSql)) {
                 int rank = 1;
