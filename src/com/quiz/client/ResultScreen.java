@@ -155,6 +155,8 @@ public class ResultScreen extends JFrame {
                 System.exit(0);
             }
         });
+
+        refreshLeaderboard();
     }
 
     /**
