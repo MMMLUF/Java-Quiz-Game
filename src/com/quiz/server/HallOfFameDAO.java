@@ -7,23 +7,35 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+/**
+ * SQLite 데이터베이스를 통해 명예의 전당(랭킹) 데이터를 관리하는 DAO 클래스.
+ * DB 파일은 실행 디렉터리의 {@code ranking.db}에 자동 생성된다.
+ */
 public class HallOfFameDAO {
-    // SQLite DB 파일 경로 (프로젝트 폴더 바로 밑에 ranking.db 파일이 생깁니다)
+
     private static final String DB_URL = "jdbc:sqlite:ranking.db";
 
-    // 1. DB 연결 메서드
+    /**
+     * 데이터베이스 연결을 생성하여 반환한다.
+     *
+     * @return 활성 DB 연결
+     * @throws SQLException DB 연결 실패 시
+     */
     private Connection connect() throws SQLException {
         return DriverManager.getConnection(DB_URL);
     }
 
-    // 2. 테이블 초기화 메서드 (테이블이 없으면 자동으로 만듭니다) 
+    /**
+     * RANKING 테이블이 없으면 새로 생성한다.
+     * 이미 테이블이 존재하는 경우 아무런 변경도 일어나지 않는다.
+     */
     public void createTable() {
         String sql = "CREATE TABLE IF NOT EXISTS RANKING ("
                    + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                    + "username TEXT NOT NULL,"
                    + "score INTEGER NOT NULL"
                    + ");";
-        
+
         try (Connection conn = this.connect();
              Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
@@ -34,7 +46,13 @@ public class HallOfFameDAO {
         }
     }
 
-    // 3. 점수 등록 메서드 (PreparedStatement를 사용하여 SQL 인젝션 방지) [cite: 214, 215, 237]
+    /**
+     * 플레이어의 점수를 RANKING 테이블에 삽입한다.
+     * SQL 인젝션 방지를 위해 {@link PreparedStatement}를 사용한다.
+     *
+     * @param username 플레이어 닉네임
+     * @param score    최종 점수
+     */
     public void insertScore(String username, int score) {
         String sql = "INSERT INTO RANKING(username, score) VALUES(?, ?)";
 
@@ -50,7 +68,9 @@ public class HallOfFameDAO {
         }
     }
 
-    // 4. 명예의 전당 TOP 10 조회 메서드 [cite: 188, 218, 238]
+    /**
+     * 점수 상위 10명의 랭킹을 콘솔에 출력한다.
+     */
     public void displayTop10() {
         String sql = "SELECT username, score FROM RANKING ORDER BY score DESC LIMIT 10";
 
@@ -61,10 +81,10 @@ public class HallOfFameDAO {
         try (Connection conn = this.connect();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
-            
+
             int rank = 1;
             boolean hasData = false;
-            
+
             while (rs.next()) {
                 hasData = true;
                 String name = rs.getString("username");
@@ -72,29 +92,15 @@ public class HallOfFameDAO {
                 System.out.println("  " + rank + "위 | " + name + " \t- " + score + "점");
                 rank++;
             }
-            
+
             if (!hasData) {
                 System.out.println("  아직 등록된 랭킹이 없습니다. 첫 주인공이 되어보세요!");
             }
             System.out.println("-----------------------------------------");
-            
+
         } catch (SQLException e) {
             System.out.println("랭킹 조회 실패");
             e.printStackTrace();
         }
-    }
-
-    public static void main(String[] args) {
-        HallOfFameDAO dao = new HallOfFameDAO();
-        
-        dao.createTable();
-        
-        System.out.println("\n--- 랭킹 등록 테스트 ---");
-        dao.insertScore("김민성", 120);
-        dao.insertScore("우찬희", 340);
-        dao.insertScore("유환휘", 560);
-        dao.insertScore("JavaKing", 780);
-        
-        dao.displayTop10();
     }
 }
