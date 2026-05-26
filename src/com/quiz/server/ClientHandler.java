@@ -146,6 +146,35 @@ public class ClientHandler extends Thread {
             out.println("GAME_OVER");
             out.println(finalScore);
 
+            // 게임 종료 후 클라이언트의 랭킹 등록·조회 명령을 처리한다.
+            HallOfFameDAO dao = new HallOfFameDAO();
+            dao.createTable();
+
+            String cmd;
+            while ((cmd = in.readLine()) != null) {
+                cmd = cmd.trim();
+                if ("REGISTER".equals(cmd)) {
+                    try {
+                        // 점수 위조 방지: 클라이언트가 보낸 값이 아닌 서버 메모리의 finalScore만 저장
+                        dao.insertScore(nickname, finalScore);
+                        out.println("REGISTER_OK");
+                    } catch (Exception ex) {
+                        out.println("REGISTER_FAIL");
+                        out.println(ex.getMessage() == null ? "DB 오류" : ex.getMessage());
+                    }
+                } else if ("TOP10".equals(cmd)) {
+                    List<String[]> rows = dao.getTop10();
+                    out.println("TOP10");
+                    out.println(rows.size());
+                    for (String[] r : rows) {
+                        out.println(r[0] + "\t" + r[1]);
+                    }
+                } else if ("QUIT".equals(cmd)) {
+                    break;
+                }
+                // 알 수 없는 명령은 침묵으로 무시
+            }
+
         } catch (QuizException qe) {
             System.out.println("[SERVER] 프로토콜 위반: " + qe.getMessage());
         } catch (IOException e) {

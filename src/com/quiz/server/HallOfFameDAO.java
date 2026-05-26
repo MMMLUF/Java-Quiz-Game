@@ -6,6 +6,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * SQLite 데이터베이스를 통해 명예의 전당(랭킹) 데이터를 관리하는 DAO 클래스.
@@ -49,11 +51,13 @@ public class HallOfFameDAO {
     /**
      * 플레이어의 점수를 RANKING 테이블에 삽입한다.
      * SQL 인젝션 방지를 위해 {@link PreparedStatement}를 사용한다.
+     * 호출자가 REGISTER_FAIL 응답을 구성할 수 있도록 SQLException을 그대로 전파한다.
      *
      * @param username 플레이어 닉네임
      * @param score    최종 점수
+     * @throws SQLException DB 삽입 실패 시
      */
-    public void insertScore(String username, int score) {
+    public void insertScore(String username, int score) throws SQLException {
         String sql = "INSERT INTO RANKING(username, score) VALUES(?, ?)";
 
         try (Connection conn = this.connect();
@@ -62,10 +66,32 @@ public class HallOfFameDAO {
             pstmt.setInt(2, score);
             pstmt.executeUpdate();
             System.out.println("점수 등록 성공: [" + username + "] -> " + score + "점");
+        }
+    }
+
+    /**
+     * 점수 상위 10명의 랭킹을 조회하여 반환한다.
+     * 각 행은 {@code [username, score]} 형태의 문자열 배열이다.
+     * 조회 실패 시 빈 리스트를 반환한다 (호출자 단순화).
+     *
+     * @return Top 10 랭킹 행 리스트 (빈 리스트일 수 있음)
+     */
+    public List<String[]> getTop10() {
+        String sql = "SELECT username, score FROM RANKING ORDER BY score DESC LIMIT 10";
+        List<String[]> rows = new ArrayList<>();
+
+        try (Connection conn = this.connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                rows.add(new String[]{ rs.getString("username"), String.valueOf(rs.getInt("score")) });
+            }
         } catch (SQLException e) {
-            System.out.println("점수 등록 실패");
+            System.out.println("랭킹 조회 실패");
             e.printStackTrace();
         }
+        return rows;
     }
 
     /**

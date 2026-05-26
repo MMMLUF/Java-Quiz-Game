@@ -120,5 +120,11 @@ All messages are transmitted as UTF-8 encoded line-delimited strings over a pers
 | S → C | `TIMER_UPDATE` | remaining seconds (int) | Sent every second during countdown |
 | S → C | `TIME_OUT_SIGNAL` | *(none)* | Notifies client that time has expired |
 | S → C | `RESULT` | `correct {pts} {streak}` / `wrong {ans}` / `timeout 0` | Sends scoring result |
-| S → C | `GAME_OVER` | final score (int) | Terminates the session |
+| S → C | `GAME_OVER` | final score (int) | Marks end of quiz; client transitions to ResultScreen |
 | C → S | *(int)* | — | Answer submission: `1`–`4` for selection, `0` for timeout |
+| C → S | `REGISTER` | *(none)* | Requests server to persist this session's score to `ranking.db` |
+| S → C | `REGISTER_OK` | *(none)* | Score persisted successfully |
+| S → C | `REGISTER_FAIL` | error message (1 line) | DB error; client surfaces the reason in a modal |
+| C → S | `TOP10` | *(none)* | Requests Top 10 leaderboard |
+| S → C | `TOP10` | row count (int), then N lines of `{username}\t{score}` | Leaderboard response |
+| C → S | `QUIT` | *(none)* | Ends the post-game session; server closes the socket |

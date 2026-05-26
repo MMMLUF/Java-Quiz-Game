@@ -368,7 +368,7 @@ public class QuizScreen extends JFrame {
                         SwingUtilities.invokeLater(new Runnable() {
                             @Override
                             public void run() {
-                                new ResultScreen(nickname, finalScore).setVisible(true);
+                                new ResultScreen(nickname, finalScore, socket, in, out).setVisible(true);
                                 dispose();
                             }
                         });

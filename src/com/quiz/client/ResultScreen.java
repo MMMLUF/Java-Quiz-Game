@@ -6,19 +6,22 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.awt.event.*;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.Statement;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.Socket;
 
 /**
  * 게임 종료 후 최종 점수와 명예의 전당 랭킹을 표시하는 결과 화면.
- * 랭킹 등록, 다시 하기, 게임 종료 기능을 제공한다.
+ * 모든 DB 접근은 서버를 경유한다 (REGISTER / TOP10 / QUIT 프로토콜).
  */
 public class ResultScreen extends JFrame {
 
-    private String nickname;
-    private int score;
+    private final String nickname;
+    private final int score;
+    private final Socket socket;
+    private final BufferedReader in;
+    private final PrintWriter out;
 
     private JTable tableLeaderboard;
     private DefaultTableModel tableModel;
@@ -28,10 +31,16 @@ public class ResultScreen extends JFrame {
     /**
      * @param nickname 플레이어 닉네임
      * @param score    이번 게임에서 획득한 최종 점수
+     * @param socket   서버와 연결된 소켓 (QuizScreen에서 인계받음)
+     * @param in       서버에서 신호를 읽을 BufferedReader
+     * @param out      서버로 신호를 전송할 PrintWriter
      */
-    public ResultScreen(String nickname, int score) {
+    public ResultScreen(String nickname, int score, Socket socket, BufferedReader in, PrintWriter out) {
         this.nickname = nickname;
         this.score = score;
+        this.socket = socket;
+        this.in = in;
+        this.out = out;
 
         setTitle("퀴즈 게임 결과");
         setSize(460, 580);
@@ -127,23 +136,19 @@ public class ResultScreen extends JFrame {
         bottomPanel.add(btnExit);
         add(bottomPanel, BorderLayout.SOUTH);
 
-        tableModel.addRow(new Object[]{"-", "등록 버튼을 눌러 랭킹에 기록하세요", "-"});
-
         btnRegister.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                com.quiz.server.HallOfFameDAO dao = new com.quiz.server.HallOfFameDAO();
-                dao.createTable();
-                dao.insertScore(nickname, score);
-                refreshLeaderboard();
+                // 1회 등록 정책: 누른 순간 즉시 비활성화하여 중복 요청 방지
                 btnRegister.setEnabled(false);
-                JOptionPane.showMessageDialog(ResultScreen.this, "랭킹에 등록되었습니다!");
+                registerScore();
             }
         });
 
         btnReplay.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                quitSession();
                 dispose();
                 new LoginScreen().setVisible(true);
             }
@@ -152,52 +157,136 @@ public class ResultScreen extends JFrame {
         btnExit.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                quitSession();
                 System.exit(0);
             }
         });
 
-        refreshLeaderboard();
+        // 진입 즉시 Top 10 자동 조회
+        requestTop10();
     }
 
     /**
-     * SQLite DB에서 상위 10명의 랭킹을 조회하여 테이블을 갱신한다.
-     * DB 연결 실패 시 사용자에게 안내 메시지를 표시하고 랭킹 기능을 비활성화한다.
+     * 서버에 TOP10 명령을 전송하고 응답을 받아 테이블을 갱신한다.
+     * 소켓 I/O는 EDT를 막지 않도록 별도 스레드에서 수행한다.
      */
-    private void refreshLeaderboard() {
-        tableModel.setRowCount(0);
+    private void requestTop10() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    out.println("TOP10");
 
-        // 스키마 정의는 서버 측 HallOfFameDAO 하나로 일원화한다.
-        new com.quiz.server.HallOfFameDAO().createTable();
+                    String header = in.readLine();
+                    if (header == null || !"TOP10".equals(header.trim())) {
+                        throw new IOException("예상치 못한 응답: " + header);
+                    }
 
-        String dbUrl     = "jdbc:sqlite:ranking.db";
-        String selectSql = "SELECT username, score FROM RANKING ORDER BY score DESC LIMIT 10";
+                    String countLine = in.readLine();
+                    if (countLine == null) throw new IOException("응답 종료(count 누락)");
+                    int count = Integer.parseInt(countLine.trim());
 
-        try (Connection conn = DriverManager.getConnection(dbUrl);
-             Statement stmt = conn.createStatement()) {
+                    final Object[][] rows = new Object[count][];
+                    for (int i = 0; i < count; i++) {
+                        String row = in.readLine();
+                        if (row == null) throw new IOException("응답 종료(행 " + i + ")");
+                        String[] parts = row.split("\t", 2);
+                        String name = parts.length >= 1 ? parts[0] : "";
+                        String pts  = parts.length >= 2 ? parts[1] : "0";
+                        rows[i] = new Object[]{ (i + 1) + "위", name, pts + "점" };
+                    }
 
-            try (ResultSet rs = stmt.executeQuery(selectSql)) {
-                int rank = 1;
-                while (rs.next()) {
-                    tableModel.addRow(new Object[]{rank + "위", rs.getString("username"), rs.getInt("score") + "점"});
-                    rank++;
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            tableModel.setRowCount(0);
+                            for (Object[] r : rows) tableModel.addRow(r);
+                            if (tableModel.getRowCount() == 0) {
+                                tableModel.addRow(new Object[]{"-", "아직 등록된 기록이 없습니다", "-"});
+                            }
+                        }
+                    });
+
+                } catch (Exception ex) {
+                    final String msg = ex.getMessage();
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            tableModel.setRowCount(0);
+                            tableModel.addRow(new Object[]{"-", "서버 연결 오류", "-"});
+                            btnRegister.setEnabled(false);
+                            btnRegister.setText("랭킹 기능 비활성화");
+                            JOptionPane.showMessageDialog(ResultScreen.this,
+                                    "서버와의 통신에 실패하여 랭킹 기능이 비활성화됩니다.\n" + (msg == null ? "" : msg),
+                                    "DB 오류", JOptionPane.WARNING_MESSAGE);
+                        }
+                    });
                 }
             }
+        }).start();
+    }
 
-            if (tableModel.getRowCount() == 0) {
-                tableModel.addRow(new Object[]{"-", "아직 등록된 기록이 없습니다", "-"});
+    /**
+     * 서버에 REGISTER 명령을 전송하고 응답에 따라 모달과 테이블을 갱신한다.
+     * 등록은 1회만 허용 (호출자가 미리 버튼을 disable함).
+     */
+    private void registerScore() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    out.println("REGISTER");
+                    String response = in.readLine();
+                    if (response == null) throw new IOException("응답 종료");
+                    response = response.trim();
+
+                    if ("REGISTER_OK".equals(response)) {
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                JOptionPane.showMessageDialog(ResultScreen.this, "랭킹에 등록되었습니다!");
+                            }
+                        });
+                        requestTop10();
+                    } else if ("REGISTER_FAIL".equals(response)) {
+                        String reasonLine = in.readLine();
+                        final String reason = reasonLine == null ? "DB 오류" : reasonLine.trim();
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                JOptionPane.showMessageDialog(ResultScreen.this,
+                                        "랭킹 등록에 실패했습니다.\n" + reason,
+                                        "등록 실패", JOptionPane.ERROR_MESSAGE);
+                            }
+                        });
+                    } else {
+                        throw new IOException("알 수 없는 응답: " + response);
+                    }
+
+                } catch (Exception ex) {
+                    final String msg = ex.getMessage();
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            JOptionPane.showMessageDialog(ResultScreen.this,
+                                    "서버와의 통신에 실패했습니다.\n" + (msg == null ? "" : msg),
+                                    "통신 오류", JOptionPane.ERROR_MESSAGE);
+                        }
+                    });
+                }
             }
+        }).start();
+    }
 
-        } catch (java.sql.SQLException se) {
-            tableModel.setRowCount(0);
-            tableModel.addRow(new Object[]{"-", "데이터베이스 연결 실패", "-"});
-            btnRegister.setEnabled(false);
-            btnRegister.setText("랭킹 기능 비활성화");
-            JOptionPane.showMessageDialog(ResultScreen.this,
-                    "DB 연결에 실패하여 랭킹 기능이 비활성화됩니다.",
-                    "DB 오류", JOptionPane.WARNING_MESSAGE);
-            se.printStackTrace();
-        } catch (Exception ex) {
-            ex.printStackTrace();
+    /**
+     * 서버에 QUIT 신호를 보내고 소켓을 닫는다. 실패는 무시한다.
+     */
+    private void quitSession() {
+        try {
+            out.println("QUIT");
+            socket.close();
+        } catch (Exception ignored) {
+            // 종료 경로이므로 무시
         }
     }
 }
