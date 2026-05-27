@@ -20,6 +20,9 @@ public class QuizServer {
      * @param args 사용하지 않음
      */
     public static void main(String[] args) {
+        new HallOfFameDAO().createTable();
+        System.out.println("[SERVER] 랭킹 DB 초기화 완료");
+
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             System.out.println("[SERVER] 퀴즈 서버가 가동되었습니다. 클라이언트를 기다립니다.");
 

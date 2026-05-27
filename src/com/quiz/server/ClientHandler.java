@@ -147,8 +147,8 @@ public class ClientHandler extends Thread {
             out.println(finalScore);
 
             // 게임 종료 후 클라이언트의 랭킹 등록·조회 명령을 처리한다.
+            // 테이블 초기화는 QuizServer 부팅 시 1회 수행됨.
             HallOfFameDAO dao = new HallOfFameDAO();
-            dao.createTable();
 
             String cmd;
             while ((cmd = in.readLine()) != null) {
